@@ -14,15 +14,17 @@
 <h1>📖 1년 성경 통독</h1>
 <h2 id="todayTitle">오늘의 말씀</h2>
 
-<button id="playBtn" onclick="readBible()" disabled>▶ 말씀 듣기</button>
+<button id="playBtn" onclick="startReading()" disabled>▶ 말씀 듣기</button>
 <button id="pauseBtn" onclick="pauseReading()" disabled>⏸ 일시정지</button>
 <button id="resumeBtn" onclick="resumeReading()" disabled>▶ 다시재생</button>
 
 <p id="bibleText">로딩 중...</p>
 
 <script>
-let utterance;
-let textContent;
+let verses = [];
+let currentIndex = 0;
+let isPaused = false;
+let timeoutId;
 
 // 시작 날짜 설정
 const startDate = new Date("2025-01-01");
@@ -39,9 +41,11 @@ fetch(dayFile)
     return response.text();
   })
   .then(data => {
-    textContent = data;
     document.getElementById("bibleText").innerText = data;
     document.getElementById("todayTitle").innerText = `오늘의 말씀 – Day ${dayIndex+1}`;
+
+    // 텍스트를 줄 단위로 나눠서 배열에 저장
+    verses = data.split("\n").filter(v => v.trim() !== "");
 
     // 버튼 활성화
     document.getElementById("playBtn").disabled = false;
@@ -53,30 +57,43 @@ fetch(dayFile)
     console.error(err);
   });
 
-function readBible() {
-  if(!textContent) return;
-
+// 절 단위 읽기 시작
+function startReading() {
+  currentIndex = 0;
+  isPaused = false;
   speechSynthesis.cancel();
-  utterance = new SpeechSynthesisUtterance(textContent);
+  clearTimeout(timeoutId);
+  readNextVerse();
+}
+
+// 다음 절 읽기
+function readNextVerse() {
+  if(currentIndex >= verses.length || isPaused) return;
+
+  const utterance = new SpeechSynthesisUtterance(verses[currentIndex]);
   utterance.lang = "ko-KR";
   utterance.rate = 0.82;
+
+  utterance.onend = () => {
+    currentIndex++;
+    timeoutId = setTimeout(readNextVerse, 800); // 절 사이 텀
+  };
+
   speechSynthesis.speak(utterance);
 }
 
 function pauseReading() {
+  isPaused = true;
   speechSynthesis.pause();
+  clearTimeout(timeoutId); // 텀 대기 취소
 }
 
-// 모바일에서도 resume가 동작하도록, 새 utterance 생성
 function resumeReading() {
-  if(!textContent) return;
+  if(!isPaused) return;
+  isPaused = false;
 
-  // speechSynthesis.resume() 대신 새 utterance 생성
-  speechSynthesis.cancel();
-  utterance = new SpeechSynthesisUtterance(textContent);
-  utterance.lang = "ko-KR";
-  utterance.rate = 0.82;
-  speechSynthesis.speak(utterance);
+  // 모바일 대응: 현재 index부터 절 단위로 새 utterance 생성
+  readNextVerse();
 }
 </script>
 
