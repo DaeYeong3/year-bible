@@ -14,24 +14,22 @@
 <h1>📖 1년 성경 통독</h1>
 <h2 id="todayTitle">오늘의 말씀</h2>
 
-<button onclick="readBible()">▶ 말씀 듣기</button>
-<button onclick="pauseReading()">⏸ 일시정지</button>
-<button onclick="resumeReading()">▶ 다시재생</button>
+<button id="playBtn" onclick="readBible()" disabled>▶ 말씀 듣기</button>
+<button id="pauseBtn" onclick="pauseReading()" disabled>⏸ 일시정지</button>
+<button id="resumeBtn" onclick="resumeReading()" disabled>▶ 다시재생</button>
 
 <p id="bibleText">로딩 중...</p>
 
 <script>
 let utterance;
+let textContent;
 
 // 시작 날짜 설정
 const startDate = new Date("2025-01-01");
 const today = new Date();
 let dayIndex = Math.floor((today - startDate) / (1000*60*60*24));
-
-// 범위 초과 방지
 if(dayIndex < 0) dayIndex = 0;
 
-// 오늘 파일(day1.html, day2.html…) 이름 결정
 const dayFile = `day${dayIndex+1}.html`;
 
 // fetch로 오늘 분량 로드
@@ -41,34 +39,46 @@ fetch(dayFile)
     return response.text();
   })
   .then(data => {
+    textContent = data;
     document.getElementById("bibleText").innerText = data;
     document.getElementById("todayTitle").innerText = `오늘의 말씀 – Day ${dayIndex+1}`;
+
+    // 버튼 활성화
+    document.getElementById("playBtn").disabled = false;
+    document.getElementById("pauseBtn").disabled = false;
+    document.getElementById("resumeBtn").disabled = false;
   })
   .catch(err => {
     document.getElementById("bibleText").innerText = "오늘 분량을 불러올 수 없습니다.";
     console.error(err);
   });
 
-
 function readBible() {
-  const text = document.getElementById("bibleText").innerText;
-  speechSynthesis.cancel();
+  if(!textContent) return;
 
-  utterance = new SpeechSynthesisUtterance(text);
+  speechSynthesis.cancel();
+  utterance = new SpeechSynthesisUtterance(textContent);
   utterance.lang = "ko-KR";
   utterance.rate = 0.82;
   speechSynthesis.speak(utterance);
 }
 
 function pauseReading() {
-  if(utterance) speechSynthesis.pause();
+  speechSynthesis.pause();
 }
 
+// 모바일에서도 resume가 동작하도록, 새 utterance 생성
 function resumeReading() {
-  if(utterance) speechSynthesis.resume();
+  if(!textContent) return;
+
+  // speechSynthesis.resume() 대신 새 utterance 생성
+  speechSynthesis.cancel();
+  utterance = new SpeechSynthesisUtterance(textContent);
+  utterance.lang = "ko-KR";
+  utterance.rate = 0.82;
+  speechSynthesis.speak(utterance);
 }
 </script>
 
 </body>
 </html>
-
