@@ -72,6 +72,8 @@
 
 <button onclick="startReading()">▶ 말씀 듣기</button>
 <button onclick="stopReading()">⏸ 멈춤</button>
+<button onclick="restartReading()"> 처음부터 다시 듣기</button>
+
 
 <div id="progressText">진행: 0 / 0 (0%)</div>
 <div id="progressBarBg">
@@ -159,6 +161,13 @@ function stopReading() {
   speechSynthesis.cancel();
 }
 
+  function restartReading() {
+  speechSynthesis.cancel(); // 현재 읽기 중단
+  index = 0;                // 처음 절로 되돌리기
+  isStopped = false;        // 읽기 상태로 전환
+  readVerse();              // 다시 시작
+}
+
 // 한 절씩 읽기
 function readVerse() {
   if (isStopped) return;
@@ -192,4 +201,5 @@ loadDay(dayIndex);
 
 </body>
 </html>
+
 
