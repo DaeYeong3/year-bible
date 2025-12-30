@@ -2,11 +2,13 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  
+
+  <!-- PWA manifest -->
   <link rel="manifest" href="manifest.json">
-  
+
   <title>1년 성경 통독</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <style>
     body {
       font-size: 26px;
@@ -14,10 +16,15 @@
       padding: 20px;
       font-family: sans-serif;
     }
-    #currentVerse {
-      font-size: 26px;
-      font-weight: bold;
-      margin-top: 30px;
+    h1 {
+      margin-bottom: 10px;
+    }
+    #datePicker {
+      font-size: 30px;
+      padding: 20px;
+      width: 100%;
+      box-sizing: border-box;
+      margin-bottom: 20px;
     }
     #todayTitle {
       color: #555;
@@ -26,102 +33,175 @@
       font-size: 26px;
       padding: 18px;
       width: 100%;
-      margin: 15px 0;
+      margin: 12px 0;
+    }
+
+    /* 📊 진행률 영역 */
+    #progressContainer {
+      margin: 20px 0;
+    }
+    #progressText {
+      font-size: 22px;
+      margin-bottom: 8px;
+      color: #444;
+    }
+    progress {
+      width: 100%;
+      height: 24px;
+    }
+
+    #currentVerse {
+      font-size: 26px;
+      font-weight: bold;
+      margin-top: 30px;
+      white-space: pre-line;
     }
   </style>
 </head>
 <body>
 
 <h1>📖 1년 성경 통독</h1>
-<h2 id="todayTitle">오늘의 말씀</h2>
+
+<!-- 📅 날짜 선택 -->
+<input type="date" id="datePicker">
+
+<h2 id="todayTitle">말씀 날짜</h2>
 
 <button onclick="startReading()">▶ 말씀 듣기</button>
 <button onclick="stopReading()">⏸ 멈춤</button>
 <button onclick="restartReading()">🔁 처음부터 다시 듣기</button>
 
+<!-- 📊 진행률 표시 -->
+<div id="progressContainer">
+  <div id="progressText">진행률: 0 / 0 (0%)</div>
+  <progress id="progressBar" value="0" max="100"></progress>
+</div>
+
 <p id="currentVerse">말씀을 불러오는 중입니다…</p>
 
 <script>
+/* =========================
+   전역 변수
+========================= */
 let verses = [];
 let index = 0;
 let isStopped = true;
 let currentUtterance = null;
 
-/* ======================
-   날짜 계산
-====================== */
+/* =========================
+   기준 시작 날짜
+========================= */
 const startDate = new Date("2025-01-01");
-const today = new Date();
-let dayIndex = Math.floor((today - startDate) / (1000 * 60 * 60 * 24));
-if (dayIndex < 0) dayIndex = 0;
 
-const dayFile = `day${dayIndex + 1}.html`;
-
-/* ======================
-   저장된 진행상태 불러오기
-====================== */
-const savedDay = localStorage.getItem("bible_day");
-const savedIndex = localStorage.getItem("bible_index");
-
-if (savedDay !== null && Number(savedDay) === dayIndex) {
-  index = Number(savedIndex) || 0;
-} else {
-  index = 0; // 날짜가 다르면 처음부터
+/* =========================
+   날짜 → dayN 계산
+========================= */
+function getDayIndexByDate(date) {
+  return Math.floor((date - startDate) / (1000 * 60 * 60 * 24));
 }
 
-/* ======================
-   오늘 분량 로드
-====================== */
-fetch(dayFile)
-  .then(res => {
-    if (!res.ok) throw new Error("파일 로드 실패");
-    return res.text();
-  })
-  .then(text => {
-    verses = text.split("\n").filter(v => v.trim() !== "");
-    document.getElementById("todayTitle").innerText =
-      `오늘의 말씀 – Day ${dayIndex + 1}`;
+/* =========================
+   진행률 업데이트
+========================= */
+function updateProgress() {
+  const total = verses.length;
+  const current = Math.min(index, total);
+  const percent = total === 0 ? 0 : Math.floor((current / total) * 100);
 
-    if (index < verses.length) {
+  document.getElementById("progressText").innerText =
+    `진행률: ${current} / ${total} (${percent}%)`;
+
+  const bar = document.getElementById("progressBar");
+  bar.max = total;
+  bar.value = current;
+}
+
+/* =========================
+   날짜 선택기
+========================= */
+const datePicker = document.getElementById("datePicker");
+const today = new Date();
+datePicker.valueAsDate = today;
+
+datePicker.addEventListener("change", () => {
+  stopReading();
+  index = 0;
+  loadBibleByDate(new Date(datePicker.value));
+});
+
+/* =========================
+   날짜 기반 말씀 로드
+========================= */
+function loadBibleByDate(date) {
+  const dayIndex = getDayIndexByDate(date);
+  if (dayIndex < 0) return;
+
+  const dayFile = `day${dayIndex + 1}.html`;
+
+  // 저장된 진행 불러오기
+  const savedDay = localStorage.getItem("bible_day");
+  const savedIndex = localStorage.getItem("bible_index");
+
+  if (savedDay !== null && Number(savedDay) === dayIndex) {
+    index = Number(savedIndex) || 0;
+  } else {
+    index = 0;
+  }
+
+  fetch(dayFile)
+    .then(res => {
+      if (!res.ok) throw new Error();
+      return res.text();
+    })
+    .then(text => {
+      verses = text.split("\n").filter(v => v.trim() !== "");
+      document.getElementById("todayTitle").innerText =
+        `${date.getFullYear()}-${date.getMonth()+1}-${date.getDate()} (Day ${dayIndex+1})`;
+
+      updateProgress();
+
       document.getElementById("currentVerse").innerText =
-        `이어서 읽기:\n\n${verses[index]}`;
-    }
-  })
-  .catch(() => {
-    document.getElementById("currentVerse").innerText =
-      "오늘의 말씀을 불러올 수 없습니다.";
-  });
+        verses[index]
+          ? `이어서 읽기:\n\n${verses[index]}`
+          : "오늘 말씀을 모두 읽었습니다.";
+    })
+    .catch(() => {
+      document.getElementById("currentVerse").innerText =
+        "말씀 파일을 불러올 수 없습니다.";
+    });
+}
 
-/* ======================
+/* =========================
    ▶ 시작
-====================== */
+========================= */
 function startReading() {
   if (!isStopped) return;
   isStopped = false;
   readVerse();
 }
 
-/* ======================
+/* =========================
    ⏸ 멈춤
-====================== */
+========================= */
 function stopReading() {
   isStopped = true;
   speechSynthesis.cancel();
 }
 
-/* ======================
+/* =========================
    🔁 처음부터 다시 듣기
-====================== */
+========================= */
 function restartReading() {
   stopReading();
   index = 0;
   localStorage.setItem("bible_index", index);
+  updateProgress();
   startReading();
 }
 
-/* ======================
+/* =========================
    한 절씩 읽기 + 자동 저장
-====================== */
+========================= */
 function readVerse() {
   if (isStopped) return;
 
@@ -129,6 +209,7 @@ function readVerse() {
     document.getElementById("currentVerse").innerText =
       "오늘 말씀을 모두 읽었습니다.";
     localStorage.removeItem("bible_index");
+    updateProgress();
     return;
   }
 
@@ -142,17 +223,24 @@ function readVerse() {
   currentUtterance.onend = () => {
     index++;
 
-    // 🔒 중간 저장 (핵심)
+    // 🔒 중간 저장
+    const selectedDate = new Date(datePicker.value);
+    const dayIndex = getDayIndexByDate(selectedDate);
     localStorage.setItem("bible_day", dayIndex);
     localStorage.setItem("bible_index", index);
 
-    setTimeout(readVerse, 400); // 절 사이 텀
+    updateProgress();
+    setTimeout(readVerse, 300);
   };
 
   speechSynthesis.speak(currentUtterance);
 }
+
+/* =========================
+   최초 실행
+========================= */
+loadBibleByDate(today);
 </script>
 
 </body>
 </html>
-
