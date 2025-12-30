@@ -142,11 +142,16 @@ function loadBibleByDate(date) {
   const savedDay = localStorage.getItem("bible_day");
   const savedIndex = localStorage.getItem("bible_index");
 
-  if (savedDay !== null && Number(savedDay) === dayIndex) {
-    index = Number(savedIndex) || 0;
+  if (
+    savedDay !== null &&
+    savedIndex !== null &&
+    Number(savedDay) === dayIndex
+  ) {
+    index = Number(savedIndex);
   } else {
     index = 0;
   }
+
 
   fetch(dayFile)
     .then(res => {
@@ -155,15 +160,20 @@ function loadBibleByDate(date) {
     })
     .then(text => {
       verses = text.split("\n").filter(v => v.trim() !== "");
+
       document.getElementById("todayTitle").innerText =
-        `${date.getFullYear()}-${date.getMonth()+1}-${date.getDate()} (Day ${dayIndex+1})`;
+        `오늘의 말씀 – Day ${dayIndex + 1}`;
 
-      updateProgress();
+  // 🔴 [4번 핵심 적용 부분]
+      if (index < verses.length) {
+        document.getElementById("currentVerse").innerText =
+          `이어서 읽기 (${index + 1}/${verses.length})\n\n${verses[index]}`;
+      } else {
+        document.getElementById("currentVerse").innerText =
+          "오늘 말씀을 모두 읽었습니다.";
+      }
+    });
 
-      document.getElementById("currentVerse").innerText =
-        verses[index]
-          ? `이어서 읽기:\n\n${verses[index]}`
-          : "오늘 말씀을 모두 읽었습니다.";
     })
     .catch(() => {
       document.getElementById("currentVerse").innerText =
@@ -244,3 +254,4 @@ loadBibleByDate(today);
 
 </body>
 </html>
+
