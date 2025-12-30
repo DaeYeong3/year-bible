@@ -11,10 +11,8 @@
       padding: 20px;
       font-family: sans-serif;
     }
-    #currentVerse {
-      font-size: 26px;
-      font-weight: bold;
-      margin-top: 30px;
+    h1, h2 {
+      text-align: center;
     }
     #todayTitle {
       color: #555;
@@ -23,7 +21,12 @@
       font-size: 26px;
       padding: 18px;
       width: 100%;
-      margin: 15px 0;
+      margin: 12px 0;
+    }
+    #currentVerse {
+      font-size: 26px;
+      font-weight: bold;
+      margin-top: 30px;
     }
     #progressText {
       margin-top: 15px;
@@ -42,6 +45,11 @@
       width: 0%;
       background: #4caf50;
     }
+    #dateBox {
+      margin: 15px 0;
+      text-align: center;
+      font-size: 20px;
+    }
   </style>
 </head>
 <body>
@@ -49,10 +57,14 @@
 <h1>📖 1년 성경 통독</h1>
 <h2 id="todayTitle">오늘의 말씀</h2>
 
+<div id="dateBox">
+  📅 날짜 선택 :
+  <input type="date" id="datePicker">
+</div>
+
 <button onclick="startReading()">▶ 말씀 듣기</button>
 <button onclick="stopReading()">⏸ 멈춤</button>
 
-<!-- ⭐ 진행률 표시 추가 -->
 <div id="progressText">진행: 0 / 0 (0%)</div>
 <div id="progressBarBg">
   <div id="progressBar"></div>
@@ -66,30 +78,65 @@ let index = 0;
 let isStopped = true;
 let currentUtterance = null;
 
-// 시작 날짜
+// 통독 시작 날짜
 const startDate = new Date("2025-01-01");
 const today = new Date();
 let dayIndex = Math.floor((today - startDate) / (1000 * 60 * 60 * 24));
 if (dayIndex < 0) dayIndex = 0;
 
-const dayFile = `day${dayIndex + 1}.html`;
+// 날짜 → dayIndex 계산
+function getDayIndexFromDate(date) {
+  return Math.floor((date - startDate) / (1000 * 60 * 60 * 24));
+}
 
-// 오늘 분량 로드
-fetch(dayFile)
-  .then(res => {
-    if (!res.ok) throw new Error("파일 로드 실패");
-    return res.text();
-  })
-  .then(text => {
-    verses = text.split("\n").filter(v => v.trim() !== "");
-    document.getElementById("todayTitle").innerText =
-      `오늘의 말씀 – Day ${dayIndex + 1}`;
-    updateProgress(); // 초기 진행률 표시
-  })
-  .catch(() => {
-    document.getElementById("currentVerse").innerText =
-      "오늘의 말씀을 불러올 수 없습니다.";
-  });
+// 날짜 선택 초기값 = 오늘
+const datePicker = document.getElementById("datePicker");
+datePicker.value = today.toISOString().split("T")[0];
+
+// 날짜 변경 시
+datePicker.addEventListener("change", e => {
+  const selectedDate = new Date(e.target.value);
+  dayIndex = getDayIndexFromDate(selectedDate);
+  loadDay(dayIndex);
+});
+
+// Day 로드
+function loadDay(dayIdx) {
+  stopReading();
+  index = 0;
+  verses = [];
+
+  const file = `day${dayIdx + 1}.html`;
+
+  fetch(file)
+    .then(res => {
+      if (!res.ok) throw new Error();
+      return res.text();
+    })
+    .then(text => {
+      verses = text.split("\n").filter(v => v.trim() !== "");
+      document.getElementById("todayTitle").innerText =
+        `오늘의 말씀 – Day ${dayIdx + 1}`;
+      updateProgress();
+      document.getElementById("currentVerse").innerText =
+        "▶ 말씀 듣기를 눌러주세요.";
+    })
+    .catch(() => {
+      document.getElementById("currentVerse").innerText =
+        "선택한 날짜의 말씀을 불러올 수 없습니다.";
+    });
+}
+
+// 진행률 업데이트
+function updateProgress() {
+  const total = verses.length;
+  const current = index;
+  const percent = total ? Math.floor((current / total) * 100) : 0;
+
+  document.getElementById("progressText").innerText =
+    `진행: ${current} / ${total} (${percent}%)`;
+  document.getElementById("progressBar").style.width = percent + "%";
+}
 
 // ▶ 시작
 function startReading() {
@@ -104,24 +151,13 @@ function stopReading() {
   speechSynthesis.cancel();
 }
 
-// 진행률 업데이트
-function updateProgress() {
-  const total = verses.length;
-  const current = index;
-  const percent = total ? Math.floor((current / total) * 100) : 0;
-
-  document.getElementById("progressText").innerText =
-    `진행: ${current} / ${total} (${percent}%)`;
-  document.getElementById("progressBar").style.width = percent + "%";
-}
-
 // 한 절씩 읽기
 function readVerse() {
   if (isStopped) return;
 
   if (index >= verses.length) {
     document.getElementById("currentVerse").innerText =
-      "오늘 말씀을 모두 읽었습니다.";
+      "오늘 말씀을 모두 읽었습니다. 수고하셨습니다 🙏";
     updateProgress();
     return;
   }
@@ -135,12 +171,15 @@ function readVerse() {
 
   currentUtterance.onend = () => {
     index++;
-    updateProgress();          // ⭐ 여기서 진행률 갱신
+    updateProgress();
     setTimeout(readVerse, 400);
   };
 
   speechSynthesis.speak(currentUtterance);
 }
+
+// 최초 로드
+loadDay(dayIndex);
 </script>
 
 </body>
