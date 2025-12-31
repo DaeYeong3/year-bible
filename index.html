@@ -67,6 +67,12 @@
 
 <h2 id="todayTitle">말씀 날짜</h2>
 
+<input
+  type="date"
+  id="datePicker"
+  onchange="changeDate(this.value)"
+>
+
 <button onclick="startReading()">▶ 말씀 듣기</button>
 <button onclick="stopReading()">⏸ 멈춤</button>
 <button onclick="restartReading()">🔁 처음부터 다시 듣기</button>
@@ -93,6 +99,8 @@
 <p id="currentVerse">말씀을 불러오는 중입니다…</p>
 
 <script>
+const START_DATE_STR = "2026-01-01";
+
 /* =========================
    전역 변수
 ========================= */
@@ -109,7 +117,7 @@ let speechRate = 0.8; // 읽기 속도 (슬라이더와 연결)
 const today = new Date();
 today.setHours(0, 0, 0, 0);
 
-const startDate = new Date(2026, 0, 1);
+const startDate = new Date(START_DATE_STR);
 startDate.setHours(0, 0, 0, 0);
 
 let dayIndex = Math.floor(
@@ -173,26 +181,37 @@ function loadBibleByDate(date) {
     index = 0;
   }
 
+  const datePicker = document.getElementById("datePicker");
+
+// 달력 최소 날짜 = 말씀 시작일
+  datePicker.min = START_DATE_STR;
+
+// 오늘 날짜가 시작일 이전이면 → 시작일로 강제
+  if (today < startDate) {
+    datePicker.value = START_DATE_STR;
+  } else {
+    datePicker.value = today.toISOString().split("T")[0];
+  }
+
+  function loadDay(dayIndex) {
+  const dayFile = `day${dayIndex + 1}.html`;
+
   fetch(dayFile)
     .then(res => {
-      if (!res.ok) throw new Error();
+      if (!res.ok) throw new Error("파일 로드 실패");
       return res.text();
     })
     .then(text => {
       verses = text.split("\n").filter(v => v.trim() !== "");
       document.getElementById("todayTitle").innerText =
-        `${date.getFullYear()}-${date.getMonth()+1}-${date.getDate()} (Day ${dayIndex+1})`;
+        `오늘의 말씀 – ${datePicker.value}`;
 
-      updateProgress();
-
-      document.getElementById("currentVerse").innerText =
-        verses[index]
-          ? `이어서 읽기:\n\n${verses[index]}`
-          : "오늘 말씀을 모두 읽었습니다.";
+      index = 0;
+      document.getElementById("currentVerse").innerText = verses[0] || "";
     })
     .catch(() => {
       document.getElementById("currentVerse").innerText =
-        "말씀 파일을 불러올 수 없습니다.";
+        "해당 날짜의 말씀을 불러올 수 없습니다.";
     });
   const rateSlider = document.getElementById("rateSlider");
   const rateValue = document.getElementById("rateValue");
@@ -203,6 +222,7 @@ function loadBibleByDate(date) {
   });
 
 }
+loadDay(dayIndex);
 
 /* =========================
    ▶ 시작
@@ -277,10 +297,27 @@ function readVerse() {
    최초 실행
 ========================= */
 loadBibleByDate(today);
+  datePicker.addEventListener("change", () => {
+  const selectedDate = new Date(datePicker.value);
+
+  let newDayIndex = Math.floor(
+    (selectedDate - startDate) / (1000 * 60 * 60 * 24)
+  );
+
+  if (newDayIndex < 0) newDayIndex = 0;
+
+  index = 0;
+  isStopped = true;
+  speechSynthesis.cancel();
+
+  loadDay(newDayIndex);
+});
+
 </script>
 
 </body>
 </html>
+
 
 
 
