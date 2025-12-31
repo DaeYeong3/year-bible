@@ -105,7 +105,19 @@ let speechRate = 0.8; // 읽기 속도 (슬라이더와 연결)
 /* =========================
    기준 시작 날짜
 ========================= */
-const startDate = new Date("2026-01-01");
+// 날짜 계산 (모바일/자정 오류 방지)
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+
+const startDate = new Date(2026, 0, 1);
+startDate.setHours(0, 0, 0, 0);
+
+let dayIndex = Math.floor(
+  (today - startDate) / (1000 * 60 * 60 * 24)
+);
+
+if (dayIndex < 0) dayIndex = 0;
+
 
 /* =========================
    날짜 → dayN 계산
@@ -134,7 +146,6 @@ function updateProgress() {
    날짜 선택기
 ========================= */
 const datePicker = document.getElementById("datePicker");
-const today = new Date();
 datePicker.valueAsDate = today;
 
 datePicker.addEventListener("change", () => {
@@ -270,6 +281,7 @@ loadBibleByDate(today);
 
 </body>
 </html>
+
 
 
 
